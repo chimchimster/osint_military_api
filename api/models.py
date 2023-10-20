@@ -1,7 +1,7 @@
 import re
 
 from typing import Optional, List
-from pydantic import BaseModel, ValidationError, field_validator
+from pydantic import BaseModel, field_validator
 
 
 class Profile(BaseModel):
