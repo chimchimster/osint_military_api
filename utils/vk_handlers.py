@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 from .decorators import do_post_request_to_vk_api
 
@@ -7,7 +7,7 @@ API_LINK = 'https://api.vk.com/method/'
 
 
 @do_post_request_to_vk_api
-async def get_vk_users_ids(screen_names: List[str], **kwargs) -> str:
+async def get_vk_users_ids(screen_names: List[str], **kwargs):
 
     token = kwargs.get('token')
 

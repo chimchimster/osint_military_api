@@ -19,7 +19,7 @@ def do_post_request_to_vk_api(coro):
 
                 if response.status == 200:
 
-                    return json.dumps(response_str)
+                    return json.loads(response_str)
 
             except Exception as e:
                 sys.stdout.write(str(e))
