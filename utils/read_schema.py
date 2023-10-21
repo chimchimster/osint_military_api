@@ -6,6 +6,7 @@ import aiofiles
 
 
 async def read_schema(path: pathlib.Path, key: str) -> Union[List, Dict]:
+    print(path)
     async with aiofiles.open(path, 'r') as file:
         data = await file.read()
         return json.loads(data).get(key)

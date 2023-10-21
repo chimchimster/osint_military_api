@@ -42,4 +42,4 @@ class Profiles(BaseModel):
     profiles: Optional[List[Profile]]
 
 
-__all__ = ['Profiles']
+__all__ = ['Profiles', 'Profile']

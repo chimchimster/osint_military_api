@@ -15,7 +15,7 @@ async def get_vk_users_ids(screen_names: List[str], **kwargs) -> str:
         'users.get',
         user_ids=','.join(screen_names),
         access_token=token,
-        v=1.154,
+        v=5.154,
     )
 
 

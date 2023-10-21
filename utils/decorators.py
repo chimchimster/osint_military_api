@@ -15,9 +15,11 @@ def do_post_request_to_vk_api(coro):
             try:
                 response = await session.post(request_string)
 
+                response_str = await response.text()
+
                 if response.status == 200:
 
-                    return json.dumps(response.text)
+                    return json.dumps(response_str)
 
             except Exception as e:
                 sys.stdout.write(str(e))
