@@ -4,5 +4,5 @@ from sqlalchemy.orm import sessionmaker
 from .engine import mysql_engine
 
 AsyncLocalSession = sessionmaker(
-    mysql_engine, class_=AsyncSession, expire_on_commit=False
+    mysql_engine.engine, class_=AsyncSession, expire_on_commit=False
 )

@@ -9,28 +9,31 @@ from osint_military_api.database import *
 router = APIRouter()
 
 
-VK_URL: Final[str] = 'https://vk.com/'
-
-
 @router.post('/account_add/')
 async def add_account_handler(profiles: Profiles):
 
     validated_profiles = Profiles.model_validate(profiles)
 
-    screen_names = []
     for profile in validated_profiles.profiles:
 
         profile = Profile.model_validate(profile)
 
-        vk_ids = [''.join(link.split(VK_URL)) for link in profile.social_media_links if link.startswith(VK_URL)]
-        screen_names.extend(vk_ids)
+        if mapped_links_screen_names := profile.social_media_links:
+            for mapped_link_screen_name in mapped_links_screen_names:
+                for key, value in mapped_link_screen_name.items():
+                    if key.startswith('https://vk.com/'):
+                        vk_source_id = await convert_vk_screen_name_to_source_id(value)
+                        response_model = VKResponse.model_validate(vk_source_id)
 
-    result_response = await convert_vk_screen_names_to_source_ids(screen_names)
-    validated_response = VKResponse.model_validate(result_response)
+                        if response_mdl := response_model.response:
+                            for response in response_mdl:
+                                source_id = PersonID.model_validate(response).id
 
-    source_ids = []
-    for vk_obj in validated_response.response:
-        validated_vk_obj = PersonID.model_validate(vk_obj)
-        source_ids.append(validated_vk_obj.id)
-    print(source_ids)
+                    else:
+                        # Инстаграм пока что добавляем через базу
+                        pass
+
     return profiles
+
+
+
