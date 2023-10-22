@@ -1,7 +1,7 @@
 from typing import Optional, Union, Tuple
 
 import sqlalchemy.exc
-from sqlalchemy import select, insert
+from sqlalchemy import select, insert, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .decorators import execute_transaction
@@ -18,10 +18,10 @@ async def add_profile_and_vk_account_into_database(
         source_type: int = None,
         moderator_id: int = None,
         **kwargs,
-) -> Optional[Union[int, Signals, None]]:
+) -> Signals:
 
     if not all([profile, source_id, soc_type, source_type, moderator_id]):
-        return
+        return Signals.BAD_REQUEST
 
     session = kwargs.get('session')
 
@@ -30,12 +30,25 @@ async def add_profile_and_vk_account_into_database(
     if has_source_id:
         return Signals.SOURCE_ID_EXISTS
 
-    military_profile_id = await add_military_into_monitoring_profile(profile, session)
+    try:
+        military_profile_id = await add_military_into_monitoring_profile(profile, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.PROFILE_EXISTS
 
-    res_id = await add_source_id_into_source(source_id, soc_type, source_type, session)
+    try:
+        res_id = await add_source_id_into_source(source_id, soc_type, source_type, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.SOURCE_ID_EXISTS
 
-    await create_connection_between_profile_and_res_id(military_profile_id, res_id, session)
-    await create_connection_between_moderator_and_profile(moderator_id, military_profile_id, session)
+    try:
+        await create_connection_between_profile_and_res_id(military_profile_id, res_id, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.CONNECTION_PROFILE_SOURCE_EXISTS
+
+    try:
+        await create_connection_between_moderator_and_profile(moderator_id, military_profile_id, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.CONNECTION_MODERATOR_PROFILE_EXISTS
 
 
 @execute_transaction
@@ -43,13 +56,24 @@ async def add_profile_into_database(
         profile: Profile = None,
         moderator_id: int = None,
         **kwargs,
-) -> None:
+) -> Signals:
+
+    if not all([profile, moderator_id]):
+        return Signals.BAD_REQUEST
 
     session = kwargs.get('session')
 
-    profile_id = await add_military_into_monitoring_profile(profile, session)
+    try:
+        profile_id = await add_military_into_monitoring_profile(profile, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.PROFILE_EXISTS
 
-    await create_connection_between_moderator_and_profile(moderator_id, profile_id, session)
+    try:
+        await create_connection_between_moderator_and_profile(moderator_id, profile_id, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.CONNECTION_MODERATOR_PROFILE_EXISTS
+
+    return Signals.PROFILE_ADDED
 
 
 @execute_transaction
@@ -59,7 +83,10 @@ async def add_account_to_existing_profile(
         soc_type: int = None,
         source_type: int = None,
         **kwargs,
-) -> Union[Optional[Signals]]:
+) -> Signals:
+
+    if not all([profile_id, source_id, soc_type, source_type]):
+        return Signals.BAD_REQUEST
 
     session = kwargs.get('session')
 
@@ -72,6 +99,82 @@ async def add_account_to_existing_profile(
         await create_connection_between_profile_and_res_id(profile_id, res_id, session)
     except sqlalchemy.exc.IntegrityError:
         return Signals.NO_MORE_THAN_ONE_ACCOUNT_FOR_PROFILE
+
+    return Signals.SOURCE_ADDED
+
+
+@execute_transaction
+async def change_connection_between_profile_and_source(
+        old_profile_id: int,
+        new_profile_id: int,
+        source_id: int,
+        **kwargs,
+) -> Signals:
+
+    if not all([old_profile_id, new_profile_id, source_id]):
+        return Signals.BAD_REQUEST
+
+    session = kwargs.get('session')
+
+    res_id = await get_res_id_of_source(source_id, session)
+
+    if not res_id:
+        return Signals.NO_SUCH_RES_ID_IN_DATABASE
+
+    has_exc = await check_if_connection_between_profile_and_source_exists(old_profile_id, res_id, session)
+
+    if not has_exc:
+        return Signals.NO_CONNECTION_BETWEEN_PROFILE_AND_PARTICULAR_SOURCE_ID
+
+    await update_connection_between_profile_and_source(
+        old_profile_id,
+        new_profile_id,
+        res_id,
+        session
+    )
+
+    return Signals.UPDATED_CONNECTION_BETWEEN_PROFILE_AND_SOURCE
+
+
+async def update_connection_between_profile_and_source(
+        old_profile_id: int,
+        new_profile_id: int,
+        res_id: int,
+        session: AsyncSession,
+) -> None:
+
+    update_stmt = update(MonitoringProfileSource).filter_by(profile_id=old_profile_id, res_id=res_id).values(
+        profile_id=new_profile_id
+    )
+
+    await session.execute(update_stmt)
+
+
+async def get_res_id_of_source(source_id: int, session: AsyncSession) -> Optional[int]:
+
+    select_stmt = select(Source.res_id).filter_by(source_id=source_id)
+
+    res_id = await session.execute(select_stmt)
+
+    return res_id.scalar()
+
+
+async def check_if_connection_between_profile_and_source_exists(
+        profile_id: int,
+        res_id: int,
+        session: AsyncSession,
+) -> bool:
+
+    select_stmt = select(MonitoringProfileSource).filter_by(
+        profile_id=profile_id,
+        res_id=res_id,
+    )
+    result = await session.execute(select_stmt)
+
+    if result.scalar():
+        return True
+    return False
+
 
 async def create_connection_between_moderator_and_profile(
         moderator_id: int,
@@ -98,8 +201,10 @@ async def create_connection_between_profile_and_res_id(
 async def add_military_into_monitoring_profile(
         profile: Profile,
         session: AsyncSession,
-) -> int:
-    """ :returns Profile.profile.id """
+) -> Union[int, Signals]:
+
+    """ :returns Profile.profile_id """
+
     insert_stmt = insert(MonitoringProfile).values(
         full_name=profile.full_name,
         unit_id=profile.unit_id,

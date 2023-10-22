@@ -8,8 +8,34 @@ VK_URL: Final[str] = 'https://vk.com/'
 INST_URL: Final[str] = 'https://instagram.com/'
 
 
+class Validator:
 
-class Account(BaseModel):
+    @classmethod
+    def validate_link(cls, link: str):
+
+        if link.startswith(VK_URL):
+            return ''.join(link.split(VK_URL))
+        else:
+            return ''.join(link.split(INST_URL))
+
+
+class AccountProfileConnection(BaseModel, Validator, extra=Extra.allow):
+    old_profile_id: int
+    new_profile_id: int
+    account: Union[str, Dict]
+    user_id: int
+
+    @field_validator('account')
+    def validate_account(cls, value: str):
+
+        if not re.match('^(https://vk\.com/((id\d{1,10})|(\w{5,32})))$|^(https://instagram\.com/\w{1,30})$', value):
+            raise ValueError(f'Ссылка {value[:10] + "..." + value[-10:] if len(value) > 20 else value} '
+                             f'не соответствует установленному формату.')
+
+        return {value: cls.validate_link(value)}
+
+
+class Account(BaseModel, Validator):
     profile_id: int
     accounts: Union[List[str], List[Dict]]
     user_id: int
@@ -29,16 +55,8 @@ class Account(BaseModel):
 
         return mapping
 
-    @classmethod
-    def validate_link(cls, link: str):
 
-        if link.startswith(VK_URL):
-            return ''.join(link.split(VK_URL))
-        else:
-            return ''.join(link.split(INST_URL))
-
-
-class Profile(BaseModel, extra=Extra.allow):
+class Profile(BaseModel, Validator, extra=Extra.allow):
     full_name: str
     unit_id: int
     profile_info: Optional[str]
@@ -76,14 +94,6 @@ class Profile(BaseModel, extra=Extra.allow):
 
         return mapping
 
-    @classmethod
-    def validate_link(cls, link: str):
-
-        if link.startswith(VK_URL):
-            return ''.join(link.split(VK_URL))
-        else:
-            return ''.join(link.split(INST_URL))
-
     def __hash__(self):
         return hash(''.join(self.social_media_links))
 
@@ -93,4 +103,4 @@ class Profiles(BaseModel):
     user_id: Optional[int]
 
 
-__all__ = ['Profiles', 'Profile', 'Account']
+__all__ = ['Profiles', 'Profile', 'Account', 'AccountProfileConnection']
