@@ -8,12 +8,41 @@ VK_URL: Final[str] = 'https://vk.com/'
 INST_URL: Final[str] = 'https://instagram.com/'
 
 
+
+class Account(BaseModel):
+    profile_id: int
+    accounts: Union[List[str], List[Dict]]
+    user_id: int
+
+    @field_validator('accounts')
+    def validate_links(cls, value: Union[List[str], None]):
+
+        mapping = []
+        for link in value:
+            if re.match('^(https://vk\.com/((id\d{1,10})|(\w{5,32})))$', link):
+                mapping.append({link: cls.validate_link(link)})
+            elif re.match('^(https://instagram\.com/\w{1,30})$', link):
+                mapping.append({link: cls.validate_link(link)})
+            else:
+                raise ValueError(f'Ссылка {link[:10] + "..." + link[-10:] if len(link) > 20 else link} '
+                                 f'не соответствует установленному формату.')
+
+        return mapping
+
+    @classmethod
+    def validate_link(cls, link: str):
+
+        if link.startswith(VK_URL):
+            return ''.join(link.split(VK_URL))
+        else:
+            return ''.join(link.split(INST_URL))
+
+
 class Profile(BaseModel, extra=Extra.allow):
-    full_name: Optional[str]
-    unit_id: Optional[int]
-    profile_info: Optional[str] = None
+    full_name: str
+    unit_id: int
+    profile_info: Optional[str]
     social_media_links: Optional[Union[List[str], List[Dict]]]
-    user_id: Optional[int]
 
     @field_validator('full_name')
     def validate_full_name(cls, value: str):
@@ -30,7 +59,10 @@ class Profile(BaseModel, extra=Extra.allow):
         return value
 
     @field_validator('social_media_links')
-    def validate_links(cls, value: List[str]):
+    def validate_links(cls, value: Union[List[str], None]):
+
+        if not value:
+            return value
 
         mapping = []
         for link in value:
@@ -58,6 +90,7 @@ class Profile(BaseModel, extra=Extra.allow):
 
 class Profiles(BaseModel):
     profiles: Optional[List[Profile]]
+    user_id: Optional[int]
 
 
-__all__ = ['Profiles', 'Profile']
+__all__ = ['Profiles', 'Profile', 'Account']
