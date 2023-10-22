@@ -82,13 +82,19 @@ async def add_account_to_existing_profile(
         source_id: int = None,
         soc_type: int = None,
         source_type: int = None,
+        moderator_id: int = None,
         **kwargs,
 ) -> Signals:
 
+    session = kwargs.get('session')
+
+    moderator_has_rights = await check_if_moderator_has_rights_to_bring_changes(profile_id, moderator_id, session)
+
+    if not moderator_has_rights:
+        return Signals.WRONG_MODERATOR_ID
+
     if not all([profile_id, source_id, soc_type, source_type]):
         return Signals.BAD_REQUEST
-
-    session = kwargs.get('session')
 
     try:
         res_id = await add_source_id_into_source(source_id, soc_type, source_type, session)
@@ -105,16 +111,22 @@ async def add_account_to_existing_profile(
 
 @execute_transaction
 async def change_connection_between_profile_and_source(
-        old_profile_id: int,
-        new_profile_id: int,
-        source_id: int,
+        old_profile_id: int = None,
+        new_profile_id: int = None,
+        source_id: int = None,
+        moderator_id: int = None,
         **kwargs,
 ) -> Signals:
 
+    session = kwargs.get('session')
+
+    moderator_has_rights = await check_if_moderator_has_rights_to_bring_changes(old_profile_id, moderator_id, session)
+
+    if not moderator_has_rights:
+        return Signals.WRONG_MODERATOR_ID
+
     if not all([old_profile_id, new_profile_id, source_id]):
         return Signals.BAD_REQUEST
-
-    session = kwargs.get('session')
 
     res_id = await get_res_id_of_source(source_id, session)
 
@@ -134,6 +146,19 @@ async def change_connection_between_profile_and_source(
     )
 
     return Signals.UPDATED_CONNECTION_BETWEEN_PROFILE_AND_SOURCE
+
+
+async def check_if_moderator_has_rights_to_bring_changes(
+        profile_id: int,
+        moderator_id: int,
+        session: AsyncSession,
+) -> Optional[UserMonitoringProfile]:
+
+    select_stmt = select(UserMonitoringProfile).filter_by(id=moderator_id, profile_id=profile_id)
+
+    has_rights = await session.execute(select_stmt)
+
+    return has_rights.scalar()
 
 
 async def update_connection_between_profile_and_source(

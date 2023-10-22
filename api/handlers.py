@@ -90,6 +90,7 @@ async def add_sources_to_existing_account_handler(account: Account):
                             source_id=source_id,
                             soc_type=1,
                             source_type=1,
+                            moderator_id=account.user_id,
                         )
 
                         if has_exc in (Signals.SOURCE_ADDED,):
@@ -131,9 +132,10 @@ async def change_account_belonging_to_profile_handler(account_profile_connection
                         new_profile_id = account_profile_connection.new_profile_id
 
                         has_exc = await change_connection_between_profile_and_source(
-                            old_profile_id,
-                            new_profile_id,
-                            source_id,
+                            old_profile_id=old_profile_id,
+                            new_profile_id=new_profile_id,
+                            source_id=source_id,
+                            moderator_id=account_profile_connection.user_id,
                         )
 
                         if has_exc in (Signals.UPDATED_CONNECTION_BETWEEN_PROFILE_AND_SOURCE,):

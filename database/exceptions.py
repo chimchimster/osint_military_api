@@ -13,6 +13,7 @@ class Signals(Enum):
     NO_CONNECTION_BETWEEN_PROFILE_AND_PARTICULAR_SOURCE_ID = 9
     UPDATED_CONNECTION_BETWEEN_PROFILE_AND_SOURCE = 10
     BAD_REQUEST = 11
+    WRONG_MODERATOR_ID = 12
 
     def __str__(self):
         return f'{self.name}'
