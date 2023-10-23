@@ -50,6 +50,8 @@ async def add_profile_and_vk_account_into_database(
     except sqlalchemy.exc.IntegrityError:
         return Signals.CONNECTION_MODERATOR_PROFILE_EXISTS
 
+    return Signals.PROFILE_ADDED
+
 
 @execute_transaction
 async def add_profile_into_database(

@@ -1,22 +1,17 @@
 import functools
 from typing import Dict, Awaitable, Final, Union, List
 
-from osint_military_api.utils import *
-
+from utils import *
 
 VK_URL: Final[str] = 'https://vk.com/'
+INST_URL: Final[str] = 'https://instagram.com/'
 
 
-async def vk_callback_handler(
-        mapped_links_screen_names: Union[List[Dict], Dict],
+async def callback_handler(
+        mapped_link_screen_name: Dict,
         coro: Union[functools.partial, Awaitable]
 ) -> Awaitable:
-
-    if isinstance(mapped_links_screen_names, Dict):
-        return await iterate_over_callback_data(mapped_links_screen_names, coro)
-    for mapped_link_screen_name in mapped_links_screen_names:
-        mapped_link_screen_name: Dict
-        return await iterate_over_callback_data(mapped_link_screen_name, coro)
+    return await iterate_over_callback_data(mapped_link_screen_name, coro)
 
 
 async def iterate_over_callback_data(
@@ -33,3 +28,9 @@ async def iterate_over_callback_data(
                     source_id = PersonID.model_validate(response).id
 
                     return await coro(source_id=source_id)
+        elif key.startswith(INST_URL):
+            return 1
+
+        
+
+
