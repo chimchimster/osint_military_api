@@ -1,2 +1,4 @@
 database/.env
 schemas/tokens/tokens.JSON
+tests/.pytest_cache
+tests/fixtures/.env

@@ -1,4 +1,4 @@
-from typing import Optional, Union, Tuple
+from typing import Optional, Union
 
 import sqlalchemy.exc
 from sqlalchemy import select, insert, update
