@@ -1,4 +1,4 @@
-from typing import Optional, Union
+from typing import Optional, Union, Tuple
 
 import sqlalchemy.exc
 from sqlalchemy import select, insert, update
@@ -54,6 +54,37 @@ async def add_profile_and_vk_account_into_database(
 
 
 @execute_transaction
+async def add_profile_and_inst_account_into_database(
+        profile: Profile = None,
+        screen_name: str = None,
+        moderator_id: int = None,
+        **kwargs,
+) -> Union[Tuple[Signals, Signals], Signals]:
+
+    if not all([profile, moderator_id]):
+        return Signals.BAD_REQUEST
+
+    session = kwargs.get('session')
+
+    try:
+        military_profile_id = await add_military_into_monitoring_profile(profile, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.PROFILE_EXISTS
+
+    try:
+        await create_connection_between_moderator_and_profile(moderator_id, military_profile_id, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.CONNECTION_MODERATOR_PROFILE_EXISTS
+
+    try:
+        await add_account_into_source_inst_query(screen_name, military_profile_id, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.SOURCE_ID_EXISTS
+
+    return Signals.PROFILE_ADDED, Signals.SOURCE_ADDING_IN_PROCESSING
+
+
+@execute_transaction
 async def add_profile_into_database(
         profile: Profile = None,
         moderator_id: int = None,
@@ -79,7 +110,7 @@ async def add_profile_into_database(
 
 
 @execute_transaction
-async def add_account_to_existing_profile(
+async def add_vk_account_to_existing_profile(
         profile_id: int = None,
         source_id: int = None,
         soc_type: int = None,
@@ -90,13 +121,13 @@ async def add_account_to_existing_profile(
 
     session = kwargs.get('session')
 
+    if not all([profile_id, source_id, soc_type, source_type, moderator_id]):
+        return Signals.BAD_REQUEST
+
     moderator_has_rights = await check_if_moderator_has_rights_to_bring_changes(profile_id, moderator_id, session)
 
     if not moderator_has_rights:
         return Signals.WRONG_MODERATOR_ID
-
-    if not all([profile_id, source_id, soc_type, source_type]):
-        return Signals.BAD_REQUEST
 
     try:
         res_id = await add_source_id_into_source(source_id, soc_type, source_type, session)
@@ -112,10 +143,36 @@ async def add_account_to_existing_profile(
 
 
 @execute_transaction
+async def add_inst_account_to_existing_profile(
+        screen_name: str = None,
+        profile_id: int = None,
+        moderator_id: int = None,
+        **kwargs,
+) -> Signals:
+
+    session = kwargs.get('session')
+
+    moderator_has_rights = await check_if_moderator_has_rights_to_bring_changes(profile_id, moderator_id, session)
+
+    if not moderator_has_rights:
+        return Signals.WRONG_MODERATOR_ID
+
+    if not all([screen_name, moderator_id]):
+        return Signals.BAD_REQUEST
+
+    try:
+        await add_account_into_source_inst_query(screen_name, profile_id, session)
+    except sqlalchemy.exc.IntegrityError:
+        return Signals.SOURCE_ID_EXISTS
+
+    return Signals.SOURCE_ADDING_IN_PROCESSING
+
+
+@execute_transaction
 async def change_connection_between_profile_and_source(
         old_profile_id: int = None,
         new_profile_id: int = None,
-        source_id: int = None,
+        res_id: int = None,
         moderator_id: int = None,
         **kwargs,
 ) -> Signals:
@@ -127,10 +184,8 @@ async def change_connection_between_profile_and_source(
     if not moderator_has_rights:
         return Signals.WRONG_MODERATOR_ID
 
-    if not all([old_profile_id, new_profile_id, source_id]):
+    if not all([old_profile_id, new_profile_id, res_id]):
         return Signals.BAD_REQUEST
-
-    res_id = await get_res_id_of_source(source_id, session)
 
     if not res_id:
         return Signals.NO_SUCH_RES_ID_IN_DATABASE
@@ -138,7 +193,7 @@ async def change_connection_between_profile_and_source(
     has_exc = await check_if_connection_between_profile_and_source_exists(old_profile_id, res_id, session)
 
     if not has_exc:
-        return Signals.NO_CONNECTION_BETWEEN_PROFILE_AND_PARTICULAR_SOURCE_ID
+        return Signals.NO_CONNECTION_BETWEEN_PROFILE_AND_PARTICULAR_SOURCE
 
     await update_connection_between_profile_and_source(
         old_profile_id,
@@ -148,6 +203,16 @@ async def change_connection_between_profile_and_source(
     )
 
     return Signals.UPDATED_CONNECTION_BETWEEN_PROFILE_AND_SOURCE
+
+
+async def add_account_into_source_inst_query(
+        screen_name: str,
+        profile_id: int,
+        session: AsyncSession,
+) -> None:
+    insert_stmt = insert(SourceInstQuery).values(profile_id=profile_id, screen_name=screen_name)
+
+    await session.execute(insert_stmt)
 
 
 async def check_if_moderator_has_rights_to_bring_changes(

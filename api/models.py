@@ -14,25 +14,16 @@ class Validator:
     def validate_link(cls, link: str):
 
         if link.startswith(VK_URL):
-            return ''.join(link.split(VK_URL))
+            return ''.join(link.split(VK_URL)).strip('/')
         else:
-            return ''.join(link.split(INST_URL))
+            return ''.join(link.split(INST_URL)).strip('/')
 
 
-class AccountProfileConnection(BaseModel, Validator, extra=Extra.allow):
+class AccountProfileConnection(BaseModel):
     old_profile_id: int
     new_profile_id: int
-    account: Union[str, Dict]
+    res_id: int
     user_id: int
-
-    @field_validator('account')
-    def validate_account(cls, value: str):
-
-        if not re.match('^(https://vk\.com/((id\d{1,10})|(\w{5,32})))$|^(https://instagram\.com/\w{1,30})$', value):
-            raise ValueError(f'Ссылка {value[:10] + "..." + value[-10:] if len(value) > 20 else value} '
-                             f'не соответствует установленному формату.')
-
-        return {value: cls.validate_link(value)}
 
 
 class Account(BaseModel, Validator):
@@ -45,9 +36,9 @@ class Account(BaseModel, Validator):
 
         mapping = []
         for link in value:
-            if re.match('^(https://vk\.com/((id\d{1,10})|(\w{5,32})))$', link):
+            if re.match('^(https://vk\.com/((id\d{1,10}/*)|(\w{5,32}/*)))$', link):
                 mapping.append({link: cls.validate_link(link)})
-            elif re.match('^(https://instagram\.com/\w{1,30})$', link):
+            elif re.match('^(https://instagram\.com/\w{1,30}/*)$', link):
                 mapping.append({link: cls.validate_link(link)})
             else:
                 raise ValueError(f'Ссылка {link[:10] + "..." + link[-10:] if len(link) > 20 else link} '
@@ -84,9 +75,9 @@ class Profile(BaseModel, Validator, extra=Extra.allow):
 
         mapping = []
         for link in value:
-            if re.match('^(https://vk\.com/((id\d{1,10})|(\w{5,32})))$', link):
+            if re.match('^(https://vk\.com/((id\d{1,10}/*)|(\w{5,32}/*)))$', link):
                 mapping.append({link: cls.validate_link(link)})
-            elif re.match('^(https://instagram\.com/\w{1,30})$', link):
+            elif re.match('^(https://instagram\.com/\w{1,30}/*)$', link):
                 mapping.append({link: cls.validate_link(link)})
             else:
                 raise ValueError(f'Ссылка {link[:10] + "..." + link[-10:] if len(link) > 20 else link} '

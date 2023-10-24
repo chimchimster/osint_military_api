@@ -41,9 +41,20 @@ class MonitoringProfileSource(Base):
     res_id = Column(Integer, primary_key=True)
 
 
+class SourceInstQuery(Base):
+
+    __tablename__ = 'source_inst_query'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    profile_id = Column(Integer)
+    screen_name = Column(String(length=35))
+    status = Column(String, default=None)
+
+
 __all__ = [
     'Source',
     'UserMonitoringProfile',
     'MonitoringProfile',
     'MonitoringProfileSource',
+    'SourceInstQuery',
 ]

@@ -1,0 +1,10 @@
+aiofiles==23.2.1
+aiohttp==3.8.6
+Faker==19.11.0
+fastapi==0.104.0
+pydantic==2.4.2
+pydantic_settings==2.0.3
+pytest==7.4.2
+SQLAlchemy==2.0.22
+starlette==0.31.1
+uvicorn==0.23.2
