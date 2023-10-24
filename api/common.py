@@ -26,7 +26,7 @@ async def iterate_over_callback_data(
 ) -> Awaitable:
 
     if not callback_data:
-        await vk_coro()
+        return await vk_coro()
 
     for key, value in callback_data.items():
         if key.startswith(VK_URL):
