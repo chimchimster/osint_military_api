@@ -15,6 +15,7 @@ class Signals(Enum):
     BAD_REQUEST = 11
     WRONG_MODERATOR_ID = 12
     SOURCE_ADDING_IN_PROCESSING = 13
+    NO_SUCH_MODERATOR_AUTH = 14
 
     def __str__(self):
         return f'{self.name}'

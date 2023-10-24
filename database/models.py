@@ -51,8 +51,17 @@ class SourceInstQuery(Base):
     status = Column(String, default=None)
 
 
+class User(Base):
+
+    __tablename__ = 'user'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    auth_key = Column(String(length=32))
+
+
 __all__ = [
     'Source',
+    'User',
     'UserMonitoringProfile',
     'MonitoringProfile',
     'MonitoringProfileSource',

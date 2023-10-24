@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from .decorators import execute_transaction
 from osint_military_api.api import Profile
 from .models import *
+from .common import generate_hash
 from .exceptions import Signals
 
 
@@ -337,6 +338,23 @@ async def source_id_already_in_database(source_id: int, session: AsyncSession) -
     if db_source_id:
         return True
     return False
+
+
+@execute_transaction
+async def get_auth_key_hash(moderator_id: int, **kwargs) -> Union[Signals, str]:
+
+    session = kwargs.get('session')
+
+    select_stmt = select(User.auth_key).filter_by(id=moderator_id)
+
+    result = await session.execute(select_stmt)
+
+    auth_key = result.scalar()
+
+    if not auth_key:
+        return Signals.NO_SUCH_MODERATOR_AUTH
+
+    return await generate_hash(auth_key)
 
 
 
